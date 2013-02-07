@@ -32,9 +32,10 @@ dpl.set = function() {
   })
 
   function project(ax,id) {
+    var s = scale(ax);
+    if (!isNaN(id)) return function() { return s(id);};
     id = id || ax;
     return function(d) {
-      var s = scale(ax)
       return s((d[id]!=undefined) ? d[id] : (d[ax]!=undefined) ? d[ax] : d)          
     }
   }
