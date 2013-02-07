@@ -14,6 +14,7 @@ all: \
 	src/core/set.js \
 	src/core/axis.js \
 	src/core/frame.js \
+	src/core/project.js \
 	src/core/render.js \
 	src/plugin/fitScale.js \
 	src/plugin/setTitle.js \

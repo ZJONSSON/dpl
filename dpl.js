@@ -39,9 +39,12 @@ var dpl = {};
       };
     });
     function project(ax, id) {
+      var s = scale(ax);
+      if (!isNaN(id)) return function() {
+        return s(id);
+      };
       id = id || ax;
       return function(d) {
-        var s = scale(ax);
         return s(d[id] != undefined ? d[id] : d[ax] != undefined ? d[ax] : d);
       };
     }
@@ -150,6 +153,11 @@ var dpl = {};
     if (g.select) g = g[0][0];
     if (g.tagName != "svg" && g.nearestViewportElement) g = g.nearestViewportElement;
     return g.frame || (g.frame = dpl_frame(g));
+  };
+  dpl.project = function(ax, f) {
+    return function(d) {
+      return dpl.frame(d3.select(this)).project(ax, f)(d);
+    };
   };
   dpl.render = function(elements) {
     if (!elements.each) return;
