@@ -79,6 +79,15 @@ dpl.chart = function (g) {
     chart.overlay.selectAll("*").transition().duration(duration).delay(delay).call(dpl.render)
   })
 
+  chart.on("render.frame",function(duration,delay) {
+    chart.resize();
+    var g = chart.all()
+    if (duration || delay) g=g.transition().duration(duration).delay(delay);
+    //var g = (duration || delay) ? frame.g.transition().duration(duration).delay(delay) : g;
+    g.call(dpl.render)
+  })
+
+
    chart.add = chart.enter // Legacy
    chart.showAxes(["x","y"])
    return chart;

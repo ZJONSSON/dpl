@@ -1,19 +1,57 @@
+dpl.frame = function(g) {
+  if (g.select) g = g.node();
+  if (g.tagName != "svg" && g.nearestViewportElement) g = g.nearestViewportElement;
+  return g.frame || (g.frame = dpl_frame(g));
+};
+
 function dpl_frame(g) {
-  var margin = {top:40,bottom:60,left:40,right:40},
-      dispatch = d3.dispatch("resize","render"),
-      selector = "*";
-    
-  var frame = dpl.set(),
-      scale = frame.scale;
+  var frame = {},
+      scales = {},
+      margin = {top:40,bottom:60,left:40,right:40},
+      dispatch = d3.dispatch("resize","render");
 
-  rebind(frame,dispatch,["resize","render"]);  
+  // REBIND
+  // d3.rebind would need https://github.com/mbostock/d3/pull/1067
+  frame.resize = function() { dispatch.resize.apply(dispatch,arguments); return frame} 
+  frame.render = function() { dispatch.render.apply(dispatch,arguments); return frame} 
+  frame.on = function() { dispatch.on.apply(dispatch,arguments); return frame} 
 
-  frame.g = g = d3.select(g);
 
-  frame.all = function() { 
-    return g.selectAll(selector) 
+  // SCALES CORE
+  function scale(ax,d,properties) {
+    if (arguments.length == 0) return Object.keys(scales)
+    if (arguments.length==1) return scales[ax] || (scales[ax] = d3.scale.linear());
+    scales[ax] =d || scales[ax]
+    if (properties) Object.keys(properties).forEach(function(d) {
+      scales[ax][d] = properties[d]
+    })
+    return frame;
+  };
+  frame.scale = scale;
+
+  ["range","domain"].forEach(function(fn) {
+    frame[fn] = function(ax,d) {
+      var s = scale(ax);
+      if (arguments.length == 1) return s[fn]();
+      s[fn](d3.functor(d)(s[fn]()) || s[fn]());
+      return frame;
+    }
+  })
+
+  frame.project = function(ax,id) {
+    var s = frame.scale(ax);
+    if (!isNaN(id)) return function() { return s(id);};
+    id = id || ax;
+    return function(d) {
+      return s((d[id]!=undefined) ? d[id] : (d[ax]!=undefined) ? d[ax] : d)          
+    }
   }
 
+  frame.interval = function(ax,id) {
+    return function(d) { return Math.abs(frame.project(ax,id)(d)-frame.project(ax)(0)) }
+  }
+
+  // MARGIN AND RANGES
   frame.margin = function(d) {
     if (arguments.length == 0) return margin;
     (["left","top","right","bottom"]).forEach(function(e,i) { 
@@ -24,7 +62,7 @@ function dpl_frame(g) {
     frame.resize();
     return frame;
   }
- 
+
   frame.on("resize.frame",function() {
     // Sort out chart position and margins
     var h =  (g.attr("height") || g.property("offsetHeight") || 2000),
@@ -59,21 +97,14 @@ function dpl_frame(g) {
     })
   })
 
-  // If render is called wihout argument or with "all", all elements are rendered
-  frame.on("render.frame",function(duration,delay) {
-    frame.resize();
-    var g = frame.all()
-    if (duration || delay) g=g.transition().duration(duration).delay(delay);
-    //var g = (duration || delay) ? frame.g.transition().duration(duration).delay(delay) : g;
-    g.call(dpl.render)
-  })
+  // CONVENIENCE SELECTORS
+  frame.g = g = d3.select(g);
 
-
-  frame.add = function(d,e) {
-    return g.selectAll(".__newdata__")
-      .data(d,e).enter()
+  frame.all = function() { 
+    return g.selectAll("*") 
   }
-  
+
+  // DEFAULT SCALES  
   scale("x");
   scale("y");
   scale("y2")
@@ -82,10 +113,4 @@ function dpl_frame(g) {
   return frame;
 };
 
-
-dpl.frame = function(g) {
-  if (g.select) g = g[0][0];
-  if (g.tagName != "svg" && g.nearestViewportElement) g = g.nearestViewportElement;
-  return g.frame || (g.frame = dpl_frame(g));
-};
 

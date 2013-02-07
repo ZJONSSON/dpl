@@ -9,17 +9,16 @@ dpl.axis = function(ax) {
       tickScale;
 
   function axis(g) {
-    //var set = g[0][0].nearestViewportElement.frame;
-    var set = dpl.frame(g)
-    _axis.scale(set.scale(ax));
+    var frame = dpl.frame(g)
+    _axis.scale(frame.scale(ax));
     // Update the tickSize 
     if (tickScale) {
-      var range = set.scale(tickScale).range();
+      var range = frame.scale(tickScale).range();
       _axis.tickSize( Math.abs(range[1]-range[0]) * ((_axis.orient() == "bottom" || _axis.orient() == "left") ? -1 : 1))
     } 
     return _axis(g);
   }
-  rebind(axis,_axis)
+  d3.rebind(axis,_axis,"orient","ticks","tickValues","tickSubdivide","tickSize","tickPadding","tickFormat")
   
   axis.scale = function(d) {
     if (arguments.length == 0) return ax;

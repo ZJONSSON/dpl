@@ -1,76 +1,18 @@
 var dpl = {};
 
 (function() {
-  function rebind(target, source, fields) {
-    (fields || Object.keys(source)).forEach(function(d) {
-      target[d] = function() {
-        var result = source[d].apply(target, arguments);
-        return result === source ? target : result;
-      };
-    });
-    target.on = function() {
-      source.on.apply(source, arguments);
-      return target;
-    };
-    return target;
-  }
-  dpl.rebind = rebind;
-  dpl.set = function() {
-    var set = {}, scales = {};
-    set.rebind = function(target) {
-      return rebind(set, target);
-    };
-    function scale(ax, d, properties) {
-      if (arguments.length == 0) return Object.keys(scales);
-      if (arguments.length == 1) return scales[ax] || (scales[ax] = d3.scale.linear());
-      scales[ax] = d || scales[ax];
-      if (properties) Object.keys(properties).forEach(function(d) {
-        scales[ax][d] = properties[d];
-      });
-      return set;
-    }
-    set.scale = scale;
-    [ "range", "domain" ].forEach(function(fn) {
-      set[fn] = function(ax, d) {
-        var s = scale(ax);
-        if (arguments.length == 1) return s[fn]();
-        s[fn](d3.functor(d)(s[fn]()) || s[fn]());
-        return set;
-      };
-    });
-    function project(ax, id) {
-      var s = scale(ax);
-      if (!isNaN(id)) return function() {
-        return s(id);
-      };
-      id = id || ax;
-      return function(d) {
-        return s(d[id] != undefined ? d[id] : d[ax] != undefined ? d[ax] : d);
-      };
-    }
-    set.project = project;
-    function interval(ax, id) {
-      return function(d) {
-        return Math.abs(project(ax, id)(d) - project(ax)(0));
-      };
-    }
-    set.interval = interval;
-    set.axis = dpl.axis;
-    set.render = dpl.render;
-    return set;
-  };
   dpl.axis = function(ax) {
     var _axis = d3.svg.axis(), tickScale;
     function axis(g) {
-      var set = dpl.frame(g);
-      _axis.scale(set.scale(ax));
+      var frame = dpl.frame(g);
+      _axis.scale(frame.scale(ax));
       if (tickScale) {
-        var range = set.scale(tickScale).range();
+        var range = frame.scale(tickScale).range();
         _axis.tickSize(Math.abs(range[1] - range[0]) * (_axis.orient() == "bottom" || _axis.orient() == "left" ? -1 : 1));
       }
       return _axis(g);
     }
-    rebind(axis, _axis);
+    d3.rebind(axis, _axis, "orient", "ticks", "tickValues", "tickSubdivide", "tickSize", "tickPadding", "tickFormat");
     axis.scale = function(d) {
       if (arguments.length == 0) return ax;
       ax = d;
@@ -83,18 +25,62 @@ var dpl = {};
     };
     return axis;
   };
+  dpl.frame = function(g) {
+    if (g.select) g = g.node();
+    if (g.tagName != "svg" && g.nearestViewportElement) g = g.nearestViewportElement;
+    return g.frame || (g.frame = dpl_frame(g));
+  };
   function dpl_frame(g) {
-    var margin = {
+    var frame = {}, scales = {}, margin = {
       top: 40,
       bottom: 60,
       left: 40,
       right: 40
-    }, dispatch = d3.dispatch("resize", "render"), selector = "*";
-    var frame = dpl.set(), scale = frame.scale;
-    rebind(frame, dispatch, [ "resize", "render" ]);
-    frame.g = g = d3.select(g);
-    frame.all = function() {
-      return g.selectAll(selector);
+    }, dispatch = d3.dispatch("resize", "render");
+    frame.resize = function() {
+      dispatch.resize.apply(dispatch, arguments);
+      return frame;
+    };
+    frame.render = function() {
+      dispatch.render.apply(dispatch, arguments);
+      return frame;
+    };
+    frame.on = function() {
+      dispatch.on.apply(dispatch, arguments);
+      return frame;
+    };
+    function scale(ax, d, properties) {
+      if (arguments.length == 0) return Object.keys(scales);
+      if (arguments.length == 1) return scales[ax] || (scales[ax] = d3.scale.linear());
+      scales[ax] = d || scales[ax];
+      if (properties) Object.keys(properties).forEach(function(d) {
+        scales[ax][d] = properties[d];
+      });
+      return frame;
+    }
+    frame.scale = scale;
+    [ "range", "domain" ].forEach(function(fn) {
+      frame[fn] = function(ax, d) {
+        var s = scale(ax);
+        if (arguments.length == 1) return s[fn]();
+        s[fn](d3.functor(d)(s[fn]()) || s[fn]());
+        return frame;
+      };
+    });
+    frame.project = function(ax, id) {
+      var s = frame.scale(ax);
+      if (!isNaN(id)) return function() {
+        return s(id);
+      };
+      id = id || ax;
+      return function(d) {
+        return s(d[id] != undefined ? d[id] : d[ax] != undefined ? d[ax] : d);
+      };
+    };
+    frame.interval = function(ax, id) {
+      return function(d) {
+        return Math.abs(frame.project(ax, id)(d) - frame.project(ax)(0));
+      };
     };
     frame.margin = function(d) {
       if (arguments.length == 0) return margin;
@@ -134,14 +120,9 @@ var dpl = {};
         if (d[0] == "y") range([ ch[1], ch[0] ]);
       });
     });
-    frame.on("render.frame", function(duration, delay) {
-      frame.resize();
-      var g = frame.all();
-      if (duration || delay) g = g.transition().duration(duration).delay(delay);
-      g.call(dpl.render);
-    });
-    frame.add = function(d, e) {
-      return g.selectAll(".__newdata__").data(d, e).enter();
+    frame.g = g = d3.select(g);
+    frame.all = function() {
+      return g.selectAll("*");
     };
     scale("x");
     scale("y");
@@ -149,11 +130,6 @@ var dpl = {};
     frame.resize();
     return frame;
   }
-  dpl.frame = function(g) {
-    if (g.select) g = g[0][0];
-    if (g.tagName != "svg" && g.nearestViewportElement) g = g.nearestViewportElement;
-    return g.frame || (g.frame = dpl_frame(g));
-  };
   dpl.project = function(ax, f) {
     return function(d) {
       return dpl.frame(d3.select(this)).project(ax, f)(d);
@@ -694,6 +670,12 @@ var dpl = {};
       chart.scale("bw").range([ bbox.x, bbox.x + bbox.width ]);
       chart.scale("bh").range([ bbox.y, bbox.y + bbox.height ]);
       chart.overlay.selectAll("*").transition().duration(duration).delay(delay).call(dpl.render);
+    });
+    chart.on("render.frame", function(duration, delay) {
+      chart.resize();
+      var g = chart.all();
+      if (duration || delay) g = g.transition().duration(duration).delay(delay);
+      g.call(dpl.render);
     });
     chart.add = chart.enter;
     chart.showAxes([ "x", "y" ]);

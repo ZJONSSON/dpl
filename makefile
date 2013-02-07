@@ -10,8 +10,6 @@ all: \
 
 .INTERMEDIATE dpl.js: \
 	src/start.js \
-	src/core/rebind.js \
-	src/core/set.js \
 	src/core/axis.js \
 	src/core/frame.js \
 	src/core/project.js \
