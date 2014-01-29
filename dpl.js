@@ -656,7 +656,7 @@ var dpl = {};
       return chart;
     };
     chart.axis = function(ax, d) {
-      var ax = chart.back.select(".axis." + ax).datum();
+      var ax = chart.back.selectAll(".axis." + ax).datum();
       if (arguments.length == 1) return ax.render;
       ax.render = d3.functor(d)(ax.render) || ax.render;
       return chart;
